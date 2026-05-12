@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>サッカー戦術ボード</title>
+    <!-- ライブラリの読み込み -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { margin: 0; padding: 0; background-color: #0f172a; overflow: hidden; touch-action: none; }
+        .pitch-container { aspect-ratio: 2/3; position: relative; width: 100%; max-width: 600px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useCallback, useEffect } = React;
+
+        // --- データの定義 ---
+        const FORMATIONS = {
+            '11': {
+                '4-4-2': [
+                    { id: 'gk', number: 'GK', x: 50, y: 92 },
+                    { id: 'df1', number: 2, x: 20, y: 80 }, { id: 'df2', number: 3, x: 40, y: 82 }, { id: 'df3', number: 4, x: 60, y: 82 }, { id: 'df4', number: 5, x: 80, y: 80 },
+                    { id: 'mf1', number: 6, x: 20, y: 65 }, { id: 'mf2', number: 7, x: 40, y: 67 }, { id: 'mf3', number: 8, x: 60, y: 67 }, { id: 'mf4', number: 9, x: 80, y: 65 },
+                    { id: 'fw1', number: 10, x: 40, y: 55 }, { id: 'fw2', number: 11, x: 60, y: 55 },
+                ],
+                '4-3-3': [
+                    { id: 'gk', number: 'GK', x: 50, y: 92 },
+                    { id: 'df1', number: 2, x: 15, y: 80 }, { id: 'df2', number: 3, x: 35, y: 82 }, { id: 'df3', number: 4, x: 65, y: 82 }, { id: 'df4', number: 5, x: 85, y: 80 },
+                    { id: 'mf1', number: 6, x: 50, y: 72 }, { id: 'mf2', number: 7, x: 30, y: 62 }, { id: 'mf3', number: 8, x: 70, y: 62 },
+                    { id: 'fw1', number: 9, x: 20, y: 52 }, { id: 'fw2', number: 10, x: 50, y: 50 }, { id: 'fw3', number: 11, x: 80, y: 52 },
+                ]
+            },
+            '8': {
+                '3-3-1': [
+                    { id: 'gk', number: 'GK', x: 50, y: 92 },
+                    { id: 'df1', number: 2, x: 20, y: 80 }, { id: 'df2', number: 3, x: 50, y: 82 }, { id: 'df3', number: 4, x: 80, y: 80 },
+                    { id: 'mf1', number: 5, x: 20, y: 65 }, { id: 'mf2', number: 6, x: 50, y: 67 }, { id: 'mf3', number: 7, x: 80, y: 65 },
+                    { id: 'fw1', number: 8, x: 50, y: 55 },
+                ],
+                '2-4-1': [
+                    { id: 'gk', number: 'GK', x: 50, y: 92 },
+                    { id: 'df1', number: 2, x: 35, y: 82 }, { id: 'df2', number: 3, x: 65, y: 82 },
+                    { id: 'mf1', number: 4, x: 15, y: 65 }, { id: 'mf2', number: 5, x: 40, y: 68 }, { id: 'mf3', number: 6, x: 60, y: 68 }, { id: 'mf4', number: 7, x: 85, y: 65 },
+                    { id: 'fw1', number: 8, x: 50, y: 55 },
+                ]
+            },
+            '6': {
+                '2-2-1': [
+                    { id: 'gk', number: 'GK', x: 50, y: 92 },
+                    { id: 'df1', number: 2, x: 30, y: 80 }, { id: 'df2', number: 3, x: 70, y: 80 },
+                    { id: 'mf1', number: 4, x: 30, y: 65 }, { id: 'mf2', number: 5, x: 70, y: 65 },
+                    { id: 'fw1', number: 6, x: 50, y: 52 },
+                ]
+            }
+        };
+
+        const COLORS = ['#ffe100', '#ff3b3b', '#3b82f6', '#ffffff', '#000000'];
+        const invertY = (y) => 100 - y;
+
+        function App() {
+            const [mode, setMode] = useState('move');
+            const [playerCount, setPlayerCount] = useState('11');
+            const [redFormation, setRedFormation] = useState('4-4-2');
+            const [blueFormation, setBlueFormation] = useState('4-4-2');
+            const [redPlayers, setRedPlayers] = useState([]);
+            const [bluePlayers, setBluePlayers] = useState([]);
+            const [ball, setBall] = useState({ x: 50, y: 50 });
+            const [lines, setLines] = useState([]);
+            const [currentLine, setCurrentLine] = useState(null);
+            const [drawColor, setDrawColor] = useState(COLORS[0]);
+            const [draggingEntity, setDraggingEntity] = useState(null);
+            const pitchRef = useRef(null);
+
+            // 初期配置と人数変更
+            useEffect(() => {
+                const countData = FORMATIONS[playerCount];
+                // フォーメーションが存在しない場合は最初のものを選ぶ
+                const rForm = countData[redFormation] ? redFormation : Object.keys(countData)[0];
+                const bForm = countData[blueFormation] ? blueFormation : Object.keys(countData)[0];
+                
+                setRedFormation(rForm);
+                setBlueFormation(bForm);
+
+                setRedPlayers(countData[rForm].map(p => ({ ...p, teamId: `r_${p.id}` })));
+                setBluePlayers(countData[bForm].map(p => ({ ...p, y: invertY(p.y), teamId: `b_${p.id}` })));
+            }, [playerCount, redFormation, blueFormation]);
+
+            const getCoords = (e) => {
+                const rect = pitchRef.current.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                let x = ((clientX - rect.left) / rect.width) * 100;
+                let y = ((clientY - rect.top) / rect.height) * 100;
+                return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+            };
+
+            const onStart = (e) => {
+                const id = e.target.dataset.id;
+                const type = e.target.dataset.type;
+                if (mode === 'move' && type) {
+                    setDraggingEntity({ type, id });
+                } else if (mode === 'draw') {
+                    setCurrentLine({ color: drawColor, points: [getCoords(e)] });
+                }
+            };
+
+            const onMove = (e) => {
+                if (mode === 'move' && draggingEntity) {
+                    const c = getCoords(e);
+                    if (draggingEntity.type === 'ball') setBall(c);
+                    else if (draggingEntity.type === 'red') setRedPlayers(ps => ps.map(p => p.teamId === draggingEntity.id ? {...p, ...c} : p));
+                    else if (draggingEntity.type === 'blue') setBluePlayers(ps => ps.map(p => p.teamId === draggingEntity.id ? {...p, ...c} : p));
+                } else if (mode === 'draw' && currentLine) {
+                    setCurrentLine(prev => ({ ...prev, points: [...prev.points, getCoords(e)] }));
+                }
+            };
+
+            const onEnd = () => {
+                if (currentLine) setLines(prev => [...prev, currentLine]);
+                setDraggingEntity(null);
+                setCurrentLine(null);
+            };
+
+            const renderPath = (pts) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+            return (
+                <div className="flex flex-col h-screen w-full bg-slate-900 text-slate-100 overflow-hidden">
+                    {/* 操作エリア */}
+                    <div className="p-2 bg-slate-800 flex flex-wrap justify-between items-center gap-2 border-b border-slate-700">
+                        <div className="flex bg-slate-700 rounded p-1">
+                            <button onClick={() => setMode('move')} className={`px-3 py-1 rounded ${mode === 'move' ? 'bg-slate-900 text-emerald-400' : 'text-slate-400'}`}>移動</button>
+                            <button onClick={() => setMode('draw')} className={`px-3 py-1 rounded ${mode === 'draw' ? 'bg-slate-900 text-emerald-400' : 'text-slate-400'}`}>描画</button>
+                        </div>
+                        <div className="flex gap-2">
+                            {mode === 'draw' && COLORS.map(c => <div key={c} onClick={() => setDrawColor(c)} className={`w-6 h-6 rounded-full border-2 ${drawColor === c ? 'border-white' : 'border-transparent'}`} style={{background: c}} />)}
+                            <button onClick={() => setLines(l => l.slice(0, -1))} className="px-2 py-1 bg-slate-700 rounded">戻る</button>
+                            <button onClick={() => setLines([])} className="px-2 py-1 bg-slate-700 rounded text-rose-400">消去</button>
+                        </div>
+                    </div>
+
+                    <div className="p-2 bg-slate-800 flex flex-wrap justify-center gap-2 text-xs">
+                        <select value={playerCount} onChange={e => setPlayerCount(e.target.value)} className="bg-slate-700 p-1 rounded font-bold">
+                            <option value="11">11人制</option><option value="8">8人制</option><option value="6">6人制</option>
+                        </select>
+                        <div className="flex gap-2">
+                            <div className="bg-rose-900/50 p-1 rounded border border-rose-800 flex items-center">
+                                <span className="mr-1 text-rose-400">赤:</span>
+                                <select value={redFormation} onChange={e => setRedFormation(e.target.value)} className="bg-transparent">
+                                    {Object.keys(FORMATIONS[playerCount]).map(f => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                            </div>
+                            <div className="bg-blue-900/50 p-1 rounded border border-blue-800 flex items-center">
+                                <span className="mr-1 text-blue-400">青:</span>
+                                <select value={blueFormation} onChange={e => setBlueFormation(e.target.value)} className="bg-transparent">
+                                    {Object.keys(FORMATIONS[playerCount]).map(f => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ピッチ */}
+                    <div className="flex-1 flex justify-center items-center p-2 overflow-hidden">
+                        <div className="pitch-container bg-emerald-600 rounded" ref={pitchRef}
+                             onMouseDown={onStart} onMouseMove={onMove} onMouseUp={onEnd}
+                             onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
+                            
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 150">
+                                <g stroke="white" strokeWidth="0.5" fill="none" opacity="0.6">
+                                    <rect x="2" y="2" width="96" height="146" /><line x1="2" y1="75" x2="98" y2="75" /><circle cx="50" cy="75" r="10" />
+                                    <rect x="22" y="2" width="56" height="22" /><rect x="22" y="126" width="56" height="22" />
+                                </g>
+                                {lines.map((l, i) => <path key={i} d={renderPath(l.points)} stroke={l.color} strokeWidth="1" fill="none" strokeLinecap="round" />)}
+                                {currentLine && <path d={renderPath(currentLine.points)} stroke={currentLine.color} strokeWidth="1" fill="none" strokeLinecap="round" />}
+                            </svg>
+
+                            {redPlayers.map(p => (
+                                <div key={p.teamId} data-type="red" data-id={p.teamId} className="absolute flex items-center justify-center rounded-full bg-rose-600 border border-rose-800 text-white font-bold shadow-lg"
+                                     style={{width: '7%', aspectRatio: '1/1', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)', fontSize: '10px'}}>{p.number}</div>
+                            ))}
+                            {bluePlayers.map(p => (
+                                <div key={p.teamId} data-type="blue" data-id={p.teamId} className="absolute flex items-center justify-center rounded-full bg-blue-600 border border-blue-800 text-white font-bold shadow-lg"
+                                     style={{width: '7%', aspectRatio: '1/1', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)', fontSize: '10px'}}>{p.number}</div>
+                            ))}
+                            <div data-type="ball" className="absolute bg-white rounded-full border border-black shadow" style={{width: '5%', aspectRatio: '1/1', left: `${ball.x}%`, top: `${ball.y}%`, transform: 'translate(-50%, -50%)'}} />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
