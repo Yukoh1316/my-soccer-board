@@ -178,19 +178,19 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-800 font-sans overflow-hidden">
+    <div className="flex flex-col h-screen w-full bg-white text-slate-800 font-sans overflow-hidden">
       {/* ツールバー 上段 */}
       <div className="flex flex-wrap items-center justify-between p-2 sm:p-3 bg-white shadow-sm z-10 gap-2 border-b border-slate-200">
         <div className="flex items-center space-x-2 sm:space-x-4">
-          <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
-            <button onClick={() => setMode('move')} className={`flex items-center px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === 'move' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+          <div className="flex bg-slate-50 rounded-lg p-1 border border-slate-200">
+            <button onClick={() => setMode('move')} className={`flex items-center px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === 'move' ? 'bg-white text-emerald-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
               <MousePointer2 size={16} className="sm:mr-1.5" /><span className="hidden sm:inline">移動</span>
             </button>
-            <button onClick={() => setMode('draw')} className={`flex items-center px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === 'draw' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            <button onClick={() => setMode('draw')} className={`flex items-center px-2 sm:px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${mode === 'draw' ? 'bg-white text-emerald-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
               <Pen size={16} className="sm:mr-1.5" /><span className="hidden sm:inline">描画</span>
             </button>
           </div>
-          <button onClick={() => setBall({ ...INITIAL_BALL })} className="text-xs px-2 py-1 bg-slate-100 border border-slate-200 hover:bg-slate-200 rounded text-slate-600 transition-colors">ボール初期化</button>
+          <button onClick={() => setBall({ ...INITIAL_BALL })} className="text-xs px-2 py-1 bg-white border border-slate-200 hover:bg-slate-50 rounded text-slate-600 transition-colors shadow-sm">ボール初期化</button>
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-3">
@@ -202,15 +202,15 @@ export default function App() {
             </div>
           )}
           <div className="flex space-x-1 sm:space-x-2">
-            <button onClick={() => setLines(prev => prev.slice(0, -1))} className="p-1.5 sm:p-2 bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 text-slate-600 transition-colors"><Undo2 size={16} /></button>
-            <button onClick={() => setLines([])} className="p-1.5 sm:p-2 bg-slate-100 border border-slate-200 rounded hover:bg-rose-50 hover:text-rose-600 text-slate-600 transition-colors"><Trash2 size={16} /></button>
+            <button onClick={() => setLines(prev => prev.slice(0, -1))} className="p-1.5 sm:p-2 bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"><Undo2 size={16} /></button>
+            <button onClick={() => setLines([])} className="p-1.5 sm:p-2 bg-white border border-slate-200 rounded hover:bg-rose-50 hover:text-rose-600 text-slate-600 transition-colors shadow-sm"><Trash2 size={16} /></button>
           </div>
         </div>
       </div>
 
       {/* ツールバー 下段 */}
-      <div className="flex flex-wrap items-center justify-center p-2 bg-white shadow-sm z-10 gap-3 text-xs sm:text-sm border-b border-slate-100">
-        <div className="flex items-center bg-slate-100 rounded px-2 py-1 border border-slate-200">
+      <div className="flex flex-wrap items-center justify-center p-2 bg-slate-50 shadow-sm z-10 gap-3 text-xs sm:text-sm border-b border-slate-200">
+        <div className="flex items-center bg-white rounded px-2 py-1 border border-slate-200 shadow-sm">
           <Settings2 size={14} className="text-slate-400 mr-2" />
           <select value={playerCount} onChange={(e) => handlePlayerCountChange(e.target.value)} className="bg-transparent text-slate-800 focus:outline-none cursor-pointer font-bold">
             <option value="11">11人制</option>
@@ -220,7 +220,7 @@ export default function App() {
         </div>
 
         <div className="flex space-x-2 sm:space-x-4">
-          <div className="flex items-center bg-rose-50 border border-rose-200 rounded px-2 py-1">
+          <div className="flex items-center bg-white border border-rose-200 rounded px-2 py-1 shadow-sm">
             <span className="text-rose-600 mr-2 font-bold text-[10px] sm:text-xs">赤</span>
             <select value={redFormation} onChange={(e) => setRedFormation(e.target.value)} className="bg-transparent text-slate-800 focus:outline-none cursor-pointer">
               {Object.keys(FORMATIONS[playerCount] || {}).map(f => (
@@ -228,7 +228,7 @@ export default function App() {
               ))}
             </select>
           </div>
-          <div className="flex items-center bg-blue-50 border border-blue-200 rounded px-2 py-1">
+          <div className="flex items-center bg-white border border-blue-200 rounded px-2 py-1 shadow-sm">
             <span className="text-blue-600 mr-2 font-bold text-[10px] sm:text-xs">青</span>
             <select value={blueFormation} onChange={(e) => setBlueFormation(e.target.value)} className="bg-transparent text-slate-800 focus:outline-none cursor-pointer">
               {Object.keys(FORMATIONS[playerCount] || {}).map(f => (
@@ -240,13 +240,13 @@ export default function App() {
       </div>
 
       {/* ピッチ */}
-      <div className="flex-1 flex justify-center items-center p-2 sm:p-4 bg-slate-50 overflow-hidden">
+      <div className="flex-1 flex justify-center items-center p-2 sm:p-4 bg-white overflow-hidden">
         <div 
-          className="relative w-full max-w-[600px] aspect-[2/3] max-h-full rounded-lg shadow-xl overflow-hidden touch-none"
+          className="relative w-full max-w-[600px] aspect-[2/3] max-h-full rounded-lg shadow-2xl overflow-hidden touch-none border border-slate-100"
           ref={pitchRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}
           style={{ cursor: mode === 'move' ? 'default' : 'crosshair' }}
         >
-          {/* 背景 */}
+          {/* 背景 (芝生) */}
           <svg width="100%" height="100%" viewBox="0 0 100 150" preserveAspectRatio="none" className="absolute top-0 left-0 bg-emerald-600 pointer-events-none">
             {[...Array(10)].map((_, i) => (
               <rect key={i} x="0" y={i * 15} width="100" height="15" fill={i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent'} />
@@ -258,7 +258,7 @@ export default function App() {
             </g>
           </svg>
 
-          {/* 線描画 */}
+          {/* 線描画レイヤー */}
           <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
             {lines.map((line, i) => (
               <path key={i} d={renderPath(line.points)} stroke={line.color} strokeWidth="1" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -268,7 +268,7 @@ export default function App() {
             )}
           </svg>
 
-          {/* 選手 */}
+          {/* 選手配置 */}
           {redPlayers.map(p => (
             <div key={p.teamId} data-type="red" data-id={p.teamId} className={`absolute flex items-center justify-center rounded-full shadow-lg font-bold text-white transition-transform touch-none select-none bg-rose-600 border-2 border-rose-700 ${draggingEntity?.id === p.teamId ? 'scale-125 z-30 opacity-90' : 'z-20'}`} style={{ width: '6.5%', aspectRatio: '1/1', left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)', fontSize: 'min(3vw, 12px)' }}>
               <span className="pointer-events-none">{p.number}</span>
