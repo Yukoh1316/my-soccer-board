@@ -10,62 +10,77 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { 
-            margin: 0; padding: 0; background-color: #ffffff; 
-            overflow: hidden; touch-action: none; font-family: sans-serif;
-            height: 100vh; height: -webkit-fill-available;
+        /* 画面全体の固定 */
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            position: fixed;
         }
-        #root { height: 100%; }
+        #root { height: 100%; display: flex; flex-direction: column; }
+        
+        /* ピッチのコンテナ：画面の中央に最大サイズで表示 */
         .pitch-wrapper {
+            flex: 1;
             position: relative;
-            height: 100%;
-            width: 100%;
+            background-color: #f1f5f9; /* 背景を少しグレーに */
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 10px;
             overflow: hidden;
         }
-        .pitch-container { 
+        .pitch-container {
             position: relative;
+            width: 100%;
             height: 100%;
-            /* 2:3の比率を保ちつつ、横幅がはみ出さないように制限 */
-            aspect-ratio: 2 / 3;
-            max-width: 100%;
-            max-height: 100%;
+            max-width: 500px; /* PCでの最大幅 */
+            aspect-ratio: 2 / 3; /* 縦横比を固定 */
             background-color: #10b981; /* emerald-500 */
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            touch-action: none; /* ブラウザのスクロールやズームを無効化 */
         }
-        select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
-        /* iPhoneのセーフエリア対応 */
-        .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
+        
+        /* 選手などの要素の調整 */
+        .player-chip {
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: grab;
+            transition: transform 0.1s;
+        }
+        .player-chip:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.2); }
+        
+        select { -webkit-appearance: none; appearance: none; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">アプリを読み込み中...</div>
 
     <script type="text/babel">
         const { useState, useRef, useCallback, useEffect } = React;
 
-        // --- アイコン (SVG形式) ---
+        // --- シンプルなアイコンコンポーネント ---
         const IconMove = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m13 19-3-3-3 3"/><path d="m19 13-3-3-3 3"/><path d="m11 5 3 3 3-3"/><path d="m5 11 3 3 3-3"/><path d="M10 16V8"/><path d="M16 10h-8"/><path d="M8 14h8"/></svg>;
         const IconPen = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"/></svg>;
         const IconTrash = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
         const IconUndo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>;
 
+        // --- 戦術データ ---
         const FORMATIONS = {
             '11': {
-                '4-4-2': [{id:'gk',n:'GK',x:50,y:138},{id:'d1',n:2,x:20,y:120},{id:'d2',n:3,x:40,y:123},{id:'d3',n:4,x:60,y:123},{id:'d4',n:5,x:80,y:120},{id:'m1',n:6,x:20,y:97},{id:'m2',n:7,x:40,y:100},{id:'m3',n:8,x:60,y:100},{id:'m4',n:9,x:80,y:97},{id:'f1',n:10,x:40,y:82},{id:'f2',n:11,x:60,y:82}],
-                '4-3-3': [{id:'gk',n:'GK',x:50,y:138},{id:'d1',n:2,x:15,y:120},{id:'d2',n:3,x:35,y:123},{id:'d3',n:4,x:65,y:123},{id:'d4',n:5,x:85,y:120},{id:'m1',n:6,x:50,y:108},{id:'m2',n:7,x:30,y:93},{id:'m3',n:8,x:70,y:93},{id:'f1',n:9,x:20,y:78},{id:'f2',n:10,x:50,y:75},{id:'f3',n:11,x:80,y:78}]
+                '4-4-2': [{id:'gk',n:'GK',x:50,y:140},{id:'d1',n:2,x:15,y:120},{id:'d2',n:3,x:38,y:120},{id:'d3',n:4,x:62,y:120},{id:'d4',n:5,x:85,y:120},{id:'m1',n:6,x:15,y:95},{id:'m2',n:7,x:38,y:95},{id:'m3',n:8,x:62,y:95},{id:'m4',n:9,x:85,y:95},{id:'f1',n:10,x:38,y:80},{id:'f2',n:11,x:62,y:80}],
+                '4-3-3': [{id:'gk',n:'GK',x:50,y:140},{id:'d1',n:2,x:15,y:120},{id:'d2',n:3,x:38,y:120},{id:'d3',n:4,x:62,y:120},{id:'d4',n:5,x:85,y:120},{id:'m1',n:6,x:50,y:105},{id:'m2',n:7,x:30,y:90},{id:'m3',n:8,x:70,y:90},{id:'f1',n:9,x:20,y:75},{id:'f2',n:10,x:50,y:75},{id:'f3',n:11,x:80,y:75}]
             },
             '8': {
-                '3-3-1': [{id:'gk',n:'GK',x:50,y:138},{id:'d1',n:2,x:20,y:120},{id:'d2',n:3,x:50,y:123},{id:'d3',n:4,x:80,y:120},{id:'m1',n:5,x:20,y:97},{id:'m2',n:6,x:50,y:100},{id:'m3',n:7,x:80,y:97},{id:'f1',n:8,x:50,y:82}]
+                '3-3-1': [{id:'gk',n:'GK',x:50,y:140},{id:'d1',n:2,x:20,y:120},{id:'d2',n:3,x:50,y:120},{id:'d3',n:4,x:80,y:120},{id:'m1',n:5,x:20,y:95},{id:'m2',n:6,x:50,y:95},{id:'m3',n:7,x:80,y:95},{id:'f1',n:8,x:50,y:80}]
             },
             '6': {
-                '2-2-1': [{id:'gk',n:'GK',x:50,y:138},{id:'d1',n:2,x:30,y:120},{id:'d2',n:3,x:70,y:120},{id:'m1',n:4,x:30,y:97},{id:'m2',n:5,x:70,y:97},{id:'f1',n:6,x:50,y:78}]
+                '2-2-1': [{id:'gk',n:'GK',x:50,y:140},{id:'d1',n:2,x:30,y:120},{id:'d2',n:3,x:70,y:120},{id:'m1',n:4,x:30,y:95},{id:'m2',n:5,x:70,y:95},{id:'f1',n:6,x:50,y:80}]
             }
         };
 
-        const COLORS = ['#ffe100', '#ff3b3b', '#3b82f6', '#000000', '#888888'];
+        const COLORS = ['#ffe100', '#ff3b3b', '#3b82f6', '#000000', '#ffffff'];
 
         function App() {
             const [mode, setMode] = useState('move');
@@ -81,27 +96,24 @@
             const [dragging, setDragging] = useState(null);
             const pitchRef = useRef(null);
 
+            // 選手配置の初期化と更新
             useEffect(() => {
                 const rData = FORMATIONS[playerCount][redFormation] || FORMATIONS[playerCount][Object.keys(FORMATIONS[playerCount])[0]];
                 const bData = FORMATIONS[playerCount][blueFormation] || FORMATIONS[playerCount][Object.keys(FORMATIONS[playerCount])[0]];
                 setRedPlayers(rData.map(p => ({ ...p, teamId: `r_${p.id}` })));
-                // 青チームはY座標を反転させる (全体の高さ150から引く)
                 setBluePlayers(bData.map(p => ({ ...p, y: 150 - p.y, teamId: `b_${p.id}` })));
             }, [playerCount, redFormation, blueFormation]);
 
+            // 座標計算（ズレ防止のためViewBoxの0-100, 0-150に正確にマッピング）
             const getCoords = (e) => {
                 if (!pitchRef.current) return null;
                 const rect = pitchRef.current.getBoundingClientRect();
                 const touch = e.touches ? e.touches[0] : e;
                 
-                // SVGのviewBoxである 100 x 150 に座標をマッピングする
                 const x = ((touch.clientX - rect.left) / rect.width) * 100;
                 const y = ((touch.clientY - rect.top) / rect.height) * 150;
                 
-                return {
-                    x: Math.max(0, Math.min(100, x)),
-                    y: Math.max(0, Math.min(150, y))
-                };
+                return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(150, y)) };
             };
 
             const handleStart = (e) => {
@@ -138,61 +150,56 @@
             const renderPath = (pts) => pts.map((p, j) => `${j===0?'M':'L'} ${p.x} ${p.y}`).join(' ');
 
             return (
-                <div className="flex flex-col h-full w-full bg-white text-slate-800 overflow-hidden">
-                    {/* メインツールバー */}
-                    <div className="p-2 sm:p-3 flex justify-between items-center border-b border-slate-200 z-30 bg-white shadow-sm">
+                <React.Fragment>
+                    {/* 上部ツールバー */}
+                    <div className="p-2 sm:p-3 flex justify-between items-center border-b border-slate-200 bg-white z-30 shadow-sm shrink-0">
                         <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200">
-                            <button onClick={() => setMode('move')} className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'move' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500'}`}>
+                            <button onClick={() => setMode('move')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${mode === 'move' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500'}`}>
                                 <IconMove /><span>移動</span>
                             </button>
-                            <button onClick={() => setMode('draw')} className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'draw' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500'}`}>
+                            <button onClick={() => setMode('draw')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${mode === 'draw' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200' : 'text-slate-500'}`}>
                                 <IconPen /><span>描画</span>
                             </button>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {mode === 'draw' && (
-                                <div className="hidden sm:flex gap-1.5 pr-2 mr-2 border-r border-slate-200">
-                                    {COLORS.map(c => <div key={c} onClick={() => setDrawColor(c)} className={`w-6 h-6 rounded-full border-2 cursor-pointer ${drawColor === c ? 'border-slate-400 scale-110' : 'border-transparent'}`} style={{background: c}} />)}
-                                </div>
-                            )}
-                            <button onClick={() => setLines(l => l.slice(0, -1))} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl shadow-sm text-slate-600 active:scale-95 transition-transform"><IconUndo /></button>
-                            <button onClick={() => setLines([])} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl shadow-sm text-rose-500 active:scale-95 transition-transform"><IconTrash /></button>
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={() => setLines(l => l.slice(0, -1))} className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 active:bg-slate-200"><IconUndo /></button>
+                            <button onClick={() => setLines([])} className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-rose-500 active:bg-rose-100"><IconTrash /></button>
                         </div>
                     </div>
 
-                    {/* 設定・オプションバー */}
-                    <div className="p-2 bg-slate-50 flex flex-wrap justify-center gap-2 text-xs border-b border-slate-200 z-20 shadow-sm">
-                        <select value={playerCount} onChange={e => setPlayerCount(e.target.value)} className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg font-bold shadow-sm">
+                    {/* 設定バー */}
+                    <div className="p-2 bg-slate-50 flex flex-wrap justify-center gap-2 text-xs border-b border-slate-200 z-20 shrink-0 shadow-inner">
+                        <select value={playerCount} onChange={e => setPlayerCount(e.target.value)} className="bg-white border border-slate-200 px-2 py-1.5 rounded-lg font-bold">
                             <option value="11">11人制</option><option value="8">8人制</option><option value="6">6人制</option>
                         </select>
-                        <div className="flex gap-2">
-                            <div className="bg-white px-3 py-1.5 rounded-lg border border-rose-200 shadow-sm flex items-center">
-                                <span className="mr-1.5 text-rose-600 font-black">赤</span>
-                                <select value={redFormation} onChange={e => setRedFormation(e.target.value)} className="bg-transparent outline-none font-medium">
+                        <div className="flex gap-1.5">
+                            <div className="bg-white px-2 py-1.5 rounded-lg border border-rose-200 flex items-center">
+                                <span className="mr-1 text-rose-600 font-bold">赤:</span>
+                                <select value={redFormation} onChange={e => setRedFormation(e.target.value)} className="bg-transparent outline-none">
                                     {Object.keys(FORMATIONS[playerCount] || {}).map(f => <option key={f} value={f}>{f}</option>)}
                                 </select>
                             </div>
-                            <div className="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm flex items-center">
-                                <span className="mr-1.5 text-blue-600 font-black">青</span>
-                                <select value={blueFormation} onChange={e => setBlueFormation(e.target.value)} className="bg-transparent outline-none font-medium">
+                            <div className="bg-white px-2 py-1.5 rounded-lg border border-blue-200 flex items-center">
+                                <span className="mr-1 text-blue-600 font-bold">青:</span>
+                                <select value={blueFormation} onChange={e => setBlueFormation(e.target.value)} className="bg-transparent outline-none">
                                     {Object.keys(FORMATIONS[playerCount] || {}).map(f => <option key={f} value={f}>{f}</option>)}
                                 </select>
                             </div>
                         </div>
                         {mode === 'draw' && (
-                            <div className="flex sm:hidden gap-2 items-center pl-2 ml-2 border-l border-slate-300">
-                                {COLORS.map(c => <div key={c} onClick={() => setDrawColor(c)} className={`w-5 h-5 rounded-full border ${drawColor === c ? 'border-slate-800 scale-125' : 'border-transparent'}`} style={{background: c}} />)}
+                            <div className="flex gap-1.5 items-center pl-1">
+                                {COLORS.map(c => <div key={c} onClick={() => setDrawColor(c)} className={`w-5 h-5 rounded-full border-2 ${drawColor === c ? 'border-slate-800 scale-110' : 'border-transparent'}`} style={{background: c}} />)}
                             </div>
                         )}
                     </div>
 
-                    {/* フィールドエリア */}
-                    <div className="flex-1 pitch-wrapper p-3 sm:p-6 bg-slate-100">
-                        <div className="pitch-container rounded-xl overflow-hidden" ref={pitchRef}
+                    {/* ピッチ表示エリア */}
+                    <div className="pitch-wrapper">
+                        <div className="pitch-container" ref={pitchRef}
                              onPointerDown={handleStart} onPointerMove={handleMove} onPointerUp={handleEnd}
-                             onTouchStart={(e) => e.preventDefault()} /* スクロール防止 */
-                        >
-                            {/* 固定の背景（芝生と白線） */}
+                             onPointerLeave={handleEnd}>
+                            
+                            {/* フィールドデザイン */}
                             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 150" preserveAspectRatio="none">
                                 <rect width="100" height="150" fill="#10b981" />
                                 {[...Array(10)].map((_, i) => (
@@ -203,40 +210,36 @@
                                     <line x1="2" y1="75" x2="98" y2="75" />
                                     <circle cx="50" cy="75" r="12" />
                                     <circle cx="50" cy="75" r="0.5" fill="white" />
-                                    {/* ゴールエリア */}
                                     <rect x="25" y="2" width="50" height="18" />
-                                    <rect x="38" y="2" width="24" height="6" />
                                     <rect x="25" y="130" width="50" height="18" />
-                                    <rect x="38" y="142" width="24" height="6" />
-                                    {/* ペナルティアーク */}
-                                    <path d="M 40 20 A 12 12 0 0 0 60 20" />
-                                    <path d="M 40 130 A 12 12 0 0 1 60 130" />
                                 </g>
                             </svg>
 
-                            {/* 動的な線（描画レイヤー） */}
+                            {/* 描画レイヤー */}
                             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 150" preserveAspectRatio="none">
-                                {lines.map((l, i) => <path key={i} d={renderPath(l.points)} stroke={l.color} strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />)}
-                                {currentLine && <path d={renderPath(currentLine.points)} stroke={currentLine.color} strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+                                {lines.map((l, i) => <path key={i} d={renderPath(l.points)} stroke={l.color} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />)}
+                                {currentLine && <path d={renderPath(currentLine.points)} stroke={currentLine.color} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
                             </svg>
 
-                            {/* 選手とボール */}
+                            {/* 選手・ボール */}
                             {redPlayers.map(p => (
-                                <div key={p.teamId} data-type="red" data-id={p.teamId} className="absolute flex items-center justify-center rounded-full bg-rose-600 border-2 border-white text-white font-black shadow-lg"
-                                     style={{width:'8%',aspectRatio:'1/1',left:`${p.x}%`,top:`${(p.y/150)*100}%`,transform:'translate(-50%, -50%)',fontSize:'min(3vw, 12px)'}}>{p.n}</div>
+                                <div key={p.teamId} data-type="red" data-id={p.teamId} className="player-chip absolute flex items-center justify-center rounded-full bg-rose-600 border-2 border-white text-white font-black shadow-md"
+                                     style={{width:'9%',aspectRatio:'1/1',left:`${p.x}%`,top:`${(p.y/150)*100}%`,transform:'translate(-50%, -50%)',fontSize:'min(3.5vw, 12px)'}}>{p.n}</div>
                             ))}
                             {bluePlayers.map(p => (
-                                <div key={p.teamId} data-type="blue" data-id={p.teamId} className="absolute flex items-center justify-center rounded-full bg-blue-600 border-2 border-white text-white font-black shadow-lg"
-                                     style={{width:'8%',aspectRatio:'1/1',left:`${p.x}%`,top:`${(p.y/150)*100}%`,transform:'translate(-50%, -50%)',fontSize:'min(3vw, 12px)'}}>{p.n}</div>
+                                <div key={p.teamId} data-type="blue" data-id={p.teamId} className="player-chip absolute flex items-center justify-center rounded-full bg-blue-600 border-2 border-white text-white font-black shadow-md"
+                                     style={{width:'9%',aspectRatio:'1/1',left:`${p.x}%`,top:`${(p.y/150)*100}%`,transform:'translate(-50%, -50%)',fontSize:'min(3.5vw, 12px)'}}>{p.n}</div>
                             ))}
-                            <div data-type="ball" data-id="ball" className="absolute bg-white rounded-full border-2 border-slate-900 shadow-xl flex items-center justify-center overflow-hidden" 
-                                 style={{width:'5.5%',aspectRatio:'1/1',left:`${ball.x}%`,top:`${(ball.y/150)*100}%`,transform:'translate(-50%, -50%)'}}>
+                            <div data-type="ball" data-id="ball" className="absolute bg-white rounded-full border-2 border-slate-900 shadow-md flex items-center justify-center overflow-hidden" 
+                                 style={{width:'6%',aspectRatio:'1/1',left:`${ball.x}%`,top:`${(ball.y/150)*100}%`,transform:'translate(-50%, -50%)'}}>
                                 <div className="w-1/2 h-1/2 bg-slate-800 rounded-full" />
                             </div>
                         </div>
                     </div>
-                    <div className="safe-pb bg-slate-50"></div>
-                </div>
+                    
+                    {/* iPhoneのホームバー用の余白 */}
+                    <div className="h-[env(safe-area-inset-bottom)] bg-slate-50"></div>
+                </React.Fragment>
             );
         }
 
