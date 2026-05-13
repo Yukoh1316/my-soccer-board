@@ -49,6 +49,14 @@
         }
         .player-chip:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.2); z-index: 50; }
         
+        .ball-chip {
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: grab;
+            z-index: 30;
+        }
+        .ball-chip:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.1); z-index: 50; }
+
         select { -webkit-appearance: none; appearance: none; }
 
         /* スクロール防止用のオーバーレイ */
@@ -72,15 +80,6 @@
             dashed: () => <svg width="24" height="12" viewBox="0 0 24 12"><line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" /></svg>,
             zigzag: () => <svg width="24" height="12" viewBox="0 0 24 12"><path d="M2 9 L6 3 L10 9 L14 3 L18 9 L22 3" fill="none" stroke="currentColor" strokeWidth="2" /></svg>
         };
-
-        const SoccerBall = () => (
-            <svg viewBox="0 0 100 100" className="w-full h-full">
-                <circle cx="50" cy="50" r="48" fill="white" stroke="#333" strokeWidth="2" />
-                <path d="M50 35 L62 45 L58 60 L42 60 L38 45 Z" fill="#333" />
-                <path d="M50 35 L50 2 M62 45 L85 38 M58 60 L75 80 M42 60 L25 80 M38 45 L15 38" stroke="#333" strokeWidth="2" />
-                <path d="M50 2 L35 12 L65 12 Z" fill="#333" opacity="0.2" />
-            </svg>
-        );
 
         // --- 戦術データ ---
         const FORMATIONS = {
@@ -130,10 +129,12 @@
             };
 
             const handleStart = (e) => {
-                const { type, id } = e.target.dataset;
-                if (mode === 'move' && type) {
+                // 子要素のクリックも考慮して一番近いデータ属性を持つ要素を探す
+                const target = e.target.closest('[data-type]');
+                if (mode === 'move' && target) {
+                    const { type, id } = target.dataset;
                     setDragging({ type, id });
-                    if (e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
+                    if (target.setPointerCapture) target.setPointerCapture(e.pointerId);
                 } else if (mode === 'draw') {
                     const c = getCoords(e);
                     if (c) setCurrentLine({ color: drawColor, type: lineType, points: [c] });
@@ -149,7 +150,6 @@
                     else if (dragging.type === 'red') setRedPlayers(ps => ps.map(p => p.teamId === dragging.id ? {...p, ...c} : p));
                     else if (dragging.type === 'blue') setBluePlayers(ps => ps.map(p => p.teamId === dragging.id ? {...p, ...c} : p));
                 } else if (mode === 'draw' && currentLine) {
-                    // 点が近すぎる場合は追加しない（ギザギザ用）
                     const last = currentLine.points[currentLine.points.length - 1];
                     const dist = Math.sqrt((c.x - last.x)**2 + (c.y - last.y)**2);
                     if (dist > 1.5) {
@@ -160,7 +160,10 @@
 
             const handleEnd = (e) => {
                 if (currentLine) setLines(prev => [...prev, currentLine]);
-                if (dragging && e.target.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
+                const target = e.target.closest('[data-type]');
+                if (dragging && target && target.releasePointerCapture) {
+                    target.releasePointerCapture(e.pointerId);
+                }
                 setDragging(null);
                 setCurrentLine(null);
             };
@@ -178,7 +181,6 @@
                     const dy = p2.y - p1.y;
                     const angle = Math.atan2(dy, dx);
                     
-                    // 中間点に垂直方向のオフセットを加える
                     const midX = (p1.x + p2.x) / 2;
                     const midY = (p1.y + p2.y) / 2;
                     const offset = i % 2 === 0 ? amplitude : -amplitude;
@@ -306,9 +308,11 @@
                                 <div key={p.teamId} data-type="blue" data-id={p.teamId} className="player-chip absolute flex items-center justify-center rounded-full bg-blue-600 border-2 border-white text-white font-black shadow-md"
                                      style={{width:'9%',aspectRatio:'1/1',left:`${p.x}%`,top:`${(p.y/150)*100}%`,transform:'translate(-50%, -50%)',fontSize:'min(3.5vw, 12px)'}}>{p.n}</div>
                             ))}
-                            <div data-type="ball" data-id="ball" className="absolute w-[7%] aspect-square cursor-grab active:cursor-grabbing transition-transform" 
+                            
+                            {/* シンプルなボールデザイン */}
+                            <div data-type="ball" data-id="ball" className="ball-chip absolute w-[6%] aspect-square bg-white border-2 border-slate-900 rounded-full shadow-md flex items-center justify-center overflow-hidden" 
                                  style={{left:`${ball.x}%`,top:`${(ball.y/150)*100}%`,transform:'translate(-50%, -50%)'}}>
-                                <SoccerBall />
+                                <div className="w-1/2 h-1/2 bg-slate-800 rounded-full" />
                             </div>
                         </div>
                     </div>
