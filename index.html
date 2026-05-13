@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>サッカー戦術ボード</title>
+    <title>サッカー戦術ボード Pro</title>
     <!-- 外部ライブラリの読み込み -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 画面全体の固定 */
         html, body { 
             margin: 0; padding: 0; width: 100%; height: 100%;
             overflow: hidden; background-color: #ffffff;
@@ -19,11 +18,10 @@
         }
         #root { height: 100%; display: flex; flex-direction: column; }
         
-        /* ピッチのコンテナ：画面の中央に最大サイズで表示 */
         .pitch-wrapper {
             flex: 1;
             position: relative;
-            background-color: #f1f5f9; /* 背景を少しグレーに */
+            background-color: #f8fafc;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -34,24 +32,27 @@
             position: relative;
             width: 100%;
             height: 100%;
-            max-width: 500px; /* PCでの最大幅 */
-            aspect-ratio: 2 / 3; /* 縦横比を固定 */
-            background-color: #10b981; /* emerald-500 */
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            touch-action: none; /* ブラウザのスクロールやズームを無効化 */
+            max-width: 500px;
+            aspect-ratio: 2 / 3;
+            background-color: #10b981;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            touch-action: none;
         }
         
-        /* 選手などの要素の調整 */
         .player-chip {
             user-select: none;
             -webkit-user-select: none;
             cursor: grab;
             transition: transform 0.1s;
+            z-index: 20;
         }
-        .player-chip:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.2); }
+        .player-chip:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.2); z-index: 50; }
         
         select { -webkit-appearance: none; appearance: none; }
+
+        /* スクロール防止用のオーバーレイ */
+        .no-scroll { position: fixed; overflow: hidden; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
@@ -60,11 +61,26 @@
     <script type="text/babel">
         const { useState, useRef, useCallback, useEffect } = React;
 
-        // --- シンプルなアイコンコンポーネント ---
+        // --- アイコンコンポーネント ---
         const IconMove = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m13 19-3-3-3 3"/><path d="m19 13-3-3-3 3"/><path d="m11 5 3 3 3-3"/><path d="m5 11 3 3 3-3"/><path d="M10 16V8"/><path d="M16 10h-8"/><path d="M8 14h8"/></svg>;
         const IconPen = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"/></svg>;
         const IconTrash = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
         const IconUndo = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>;
+
+        const LineTypeIcons = {
+            solid: () => <svg width="24" height="12" viewBox="0 0 24 12"><line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="2" /></svg>,
+            dashed: () => <svg width="24" height="12" viewBox="0 0 24 12"><line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" /></svg>,
+            zigzag: () => <svg width="24" height="12" viewBox="0 0 24 12"><path d="M2 9 L6 3 L10 9 L14 3 L18 9 L22 3" fill="none" stroke="currentColor" strokeWidth="2" /></svg>
+        };
+
+        const SoccerBall = () => (
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+                <circle cx="50" cy="50" r="48" fill="white" stroke="#333" strokeWidth="2" />
+                <path d="M50 35 L62 45 L58 60 L42 60 L38 45 Z" fill="#333" />
+                <path d="M50 35 L50 2 M62 45 L85 38 M58 60 L75 80 M42 60 L25 80 M38 45 L15 38" stroke="#333" strokeWidth="2" />
+                <path d="M50 2 L35 12 L65 12 Z" fill="#333" opacity="0.2" />
+            </svg>
+        );
 
         // --- 戦術データ ---
         const FORMATIONS = {
@@ -84,6 +100,7 @@
 
         function App() {
             const [mode, setMode] = useState('move');
+            const [lineType, setLineType] = useState('solid');
             const [playerCount, setPlayerCount] = useState('11');
             const [redFormation, setRedFormation] = useState('4-4-2');
             const [blueFormation, setBlueFormation] = useState('4-4-2');
@@ -96,7 +113,6 @@
             const [dragging, setDragging] = useState(null);
             const pitchRef = useRef(null);
 
-            // 選手配置の初期化と更新
             useEffect(() => {
                 const rData = FORMATIONS[playerCount][redFormation] || FORMATIONS[playerCount][Object.keys(FORMATIONS[playerCount])[0]];
                 const bData = FORMATIONS[playerCount][blueFormation] || FORMATIONS[playerCount][Object.keys(FORMATIONS[playerCount])[0]];
@@ -104,15 +120,12 @@
                 setBluePlayers(bData.map(p => ({ ...p, y: 150 - p.y, teamId: `b_${p.id}` })));
             }, [playerCount, redFormation, blueFormation]);
 
-            // 座標計算（ズレ防止のためViewBoxの0-100, 0-150に正確にマッピング）
             const getCoords = (e) => {
                 if (!pitchRef.current) return null;
                 const rect = pitchRef.current.getBoundingClientRect();
                 const touch = e.touches ? e.touches[0] : e;
-                
                 const x = ((touch.clientX - rect.left) / rect.width) * 100;
                 const y = ((touch.clientY - rect.top) / rect.height) * 150;
-                
                 return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(150, y)) };
             };
 
@@ -123,7 +136,7 @@
                     if (e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
                 } else if (mode === 'draw') {
                     const c = getCoords(e);
-                    if (c) setCurrentLine({ color: drawColor, points: [c] });
+                    if (c) setCurrentLine({ color: drawColor, type: lineType, points: [c] });
                 }
             };
 
@@ -136,7 +149,12 @@
                     else if (dragging.type === 'red') setRedPlayers(ps => ps.map(p => p.teamId === dragging.id ? {...p, ...c} : p));
                     else if (dragging.type === 'blue') setBluePlayers(ps => ps.map(p => p.teamId === dragging.id ? {...p, ...c} : p));
                 } else if (mode === 'draw' && currentLine) {
-                    setCurrentLine(prev => ({ ...prev, points: [...prev.points, c] }));
+                    // 点が近すぎる場合は追加しない（ギザギザ用）
+                    const last = currentLine.points[currentLine.points.length - 1];
+                    const dist = Math.sqrt((c.x - last.x)**2 + (c.y - last.y)**2);
+                    if (dist > 1.5) {
+                        setCurrentLine(prev => ({ ...prev, points: [...prev.points, c] }));
+                    }
                 }
             };
 
@@ -147,7 +165,36 @@
                 setCurrentLine(null);
             };
 
-            const renderPath = (pts) => pts.map((p, j) => `${j===0?'M':'L'} ${p.x} ${p.y}`).join(' ');
+            const generateZigzagPath = (points) => {
+                if (points.length < 2) return "";
+                let d = `M ${points[0].x} ${points[0].y}`;
+                const amplitude = 1.2;
+                
+                for (let i = 1; i < points.length; i++) {
+                    const p1 = points[i-1];
+                    const p2 = points[i];
+                    
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const angle = Math.atan2(dy, dx);
+                    
+                    // 中間点に垂直方向のオフセットを加える
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    const offset = i % 2 === 0 ? amplitude : -amplitude;
+                    
+                    const nx = midX - Math.sin(angle) * offset;
+                    const ny = midY + Math.cos(angle) * offset;
+                    
+                    d += ` L ${nx} ${ny} L ${p2.x} ${p2.y}`;
+                }
+                return d;
+            };
+
+            const renderPath = (line) => {
+                if (line.type === 'zigzag') return generateZigzagPath(line.points);
+                return line.points.map((p, j) => `${j===0?'M':'L'} ${p.x} ${p.y}`).join(' ');
+            };
 
             return (
                 <React.Fragment>
@@ -161,7 +208,17 @@
                                 <IconPen /><span>描画</span>
                             </button>
                         </div>
+                        
                         <div className="flex items-center gap-1.5">
+                            {mode === 'draw' && (
+                                <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200 mr-2">
+                                    {Object.keys(LineTypeIcons).map(t => (
+                                        <button key={t} onClick={() => setLineType(t)} className={`p-1.5 rounded-md ${lineType === t ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>
+                                            {LineTypeIcons[t]()}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <button onClick={() => setLines(l => l.slice(0, -1))} className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 active:bg-slate-200"><IconUndo /></button>
                             <button onClick={() => setLines([])} className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-rose-500 active:bg-rose-100"><IconTrash /></button>
                         </div>
@@ -212,13 +269,32 @@
                                     <circle cx="50" cy="75" r="0.5" fill="white" />
                                     <rect x="25" y="2" width="50" height="18" />
                                     <rect x="25" y="130" width="50" height="18" />
+                                    <path d="M 40 20 A 10 10 0 0 0 60 20" />
+                                    <path d="M 40 130 A 10 10 0 0 1 60 130" />
                                 </g>
                             </svg>
 
                             {/* 描画レイヤー */}
                             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 150" preserveAspectRatio="none">
-                                {lines.map((l, i) => <path key={i} d={renderPath(l.points)} stroke={l.color} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />)}
-                                {currentLine && <path d={renderPath(currentLine.points)} stroke={currentLine.color} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+                                {lines.map((l, i) => (
+                                    <path key={i} 
+                                          d={renderPath(l)} 
+                                          stroke={l.color} 
+                                          strokeWidth="1.5" 
+                                          fill="none" 
+                                          strokeDasharray={l.type === 'dashed' ? "4 3" : "none"}
+                                          strokeLinecap="round" 
+                                          strokeLinejoin="round" />
+                                ))}
+                                {currentLine && (
+                                    <path d={renderPath(currentLine)} 
+                                          stroke={currentLine.color} 
+                                          strokeWidth="1.5" 
+                                          fill="none" 
+                                          strokeDasharray={currentLine.type === 'dashed' ? "4 3" : "none"}
+                                          strokeLinecap="round" 
+                                          strokeLinejoin="round" />
+                                )}
                             </svg>
 
                             {/* 選手・ボール */}
@@ -230,15 +306,15 @@
                                 <div key={p.teamId} data-type="blue" data-id={p.teamId} className="player-chip absolute flex items-center justify-center rounded-full bg-blue-600 border-2 border-white text-white font-black shadow-md"
                                      style={{width:'9%',aspectRatio:'1/1',left:`${p.x}%`,top:`${(p.y/150)*100}%`,transform:'translate(-50%, -50%)',fontSize:'min(3.5vw, 12px)'}}>{p.n}</div>
                             ))}
-                            <div data-type="ball" data-id="ball" className="absolute bg-white rounded-full border-2 border-slate-900 shadow-md flex items-center justify-center overflow-hidden" 
-                                 style={{width:'6%',aspectRatio:'1/1',left:`${ball.x}%`,top:`${(ball.y/150)*100}%`,transform:'translate(-50%, -50%)'}}>
-                                <div className="w-1/2 h-1/2 bg-slate-800 rounded-full" />
+                            <div data-type="ball" data-id="ball" className="absolute w-[7%] aspect-square cursor-grab active:cursor-grabbing transition-transform" 
+                                 style={{left:`${ball.x}%`,top:`${(ball.y/150)*100}%`,transform:'translate(-50%, -50%)'}}>
+                                <SoccerBall />
                             </div>
                         </div>
                     </div>
                     
-                    {/* iPhoneのホームバー用の余白 */}
-                    <div className="h-[env(safe-area-inset-bottom)] bg-slate-50"></div>
+                    {/* 下部余白 */}
+                    <div className="h-[env(safe-area-inset-bottom)] bg-white"></div>
                 </React.Fragment>
             );
         }
